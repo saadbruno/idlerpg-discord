@@ -30,8 +30,8 @@ Both local startup and Docker automatically create missing runtime event files f
 1. Install Node.js 20 or newer and run `npm install`.
 2. Copy `data/config.example.json` to `data/config.json` if an active config does not already exist, then set `channelIds` and `ownerIds`. `defaultLocale` is used when Discord's server locale is unsupported, and `eventsPaths` maps each language to its event file.
 3. Set the bot token as `DISCORD_TOKEN` (recommended) or put it in `data/config.json`.
-4. In the Discord Developer Portal, enable the **Server Members Intent** and **Message Content Intent** for the bot. Enable **Presence Intent** to apply penalties when players go offline.
-5. Invite the bot with the `bot` and `applications.commands` scopes. It needs View Channel, Send Messages, and Use Application Commands in every game channel.
+4. Configure the Discord permissions, installation scopes, and gateway intents described below.
+5. Invite the bot to the server.
 6. Run `npm start`.
 
 Bash example:
@@ -45,6 +45,26 @@ npm start
 `npm start` uses `./data/config.json` by default. `IDLERPG_DATA_DIR` can select another data directory, and `IDLERPG_CONFIG` can select a specific config file.
 
 Commands are installed as guild commands when the bot starts. Discord may display them in other channels in the same server, but the bot rejects them anywhere not listed in `channelIds`.
+
+## Discord permissions
+
+Invite the application with the `bot` and `applications.commands` scopes. The bot role only needs these permissions in every configured game channel:
+
+- **View Channels**
+- **Send Messages**
+- **Embed Links** — used by the status and help responses
+
+The corresponding bot permissions integer is `19456`. Channel-specific permission overrides must also allow these permissions. The bot does not need Administrator, Manage Server, Read Message History, Mention Everyone, moderation, role, thread, attachment, webhook, or voice permissions. Ordinary user mentions do not require Mention Everyone.
+
+Players need **Use Slash Commands** (also shown as **Use Application Commands** in some Discord interfaces) in the game channel. This permission belongs to the players, not the bot role. Members using `/idlerpg-admin` must have **Manage Server**, unless their Discord ID is listed in `ownerIds`; the bot itself does not need Manage Server.
+
+In **Discord Developer Portal → Bot → Privileged Gateway Intents**, enable:
+
+- **Presence Intent** — enables presence-based activation and offline penalties; without it, the bot falls back to applying an offline penalty only when a member leaves the server
+- **Server Members Intent** — enables startup member reconciliation, server join/leave handling, and nickname-change penalties
+- **Message Content Intent** — lets the bot read message length for message penalties
+
+Gateway intents are application settings and are separate from server/channel permissions. See Discord's [Gateway Intents documentation](https://docs.discord.com/developers/events/gateway#gateway-intents) for details.
 
 You can also configure IDs without a JSON file:
 
