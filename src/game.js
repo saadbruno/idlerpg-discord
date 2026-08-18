@@ -437,7 +437,9 @@ export class IdleGame {
       };
     }
     let opponent = sample(opponents);
-    if (rand(opponents.length + 1) < 1) opponent = BOT_OPPONENT;
+    if (this.config.enableBotOpponent !== false && rand(opponents.length + 1) < 1) {
+      opponent = BOT_OPPONENT;
+    }
     const mySum = this.itemSum(player, true);
     const opponentSum = this.itemSum(opponent, true);
     const myRoll = randInt(mySum);

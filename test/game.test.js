@@ -153,6 +153,34 @@ test('level-up events only mention the leveling player in the initial announceme
   }
 });
 
+test('the virtual IdleRPG opponent can be disabled', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  const database = new GameDatabase(':memory:');
+  try {
+    const game = new IdleGame('channel', database, {
+      ...config,
+      enableBotOpponent: false,
+    }, events);
+    const player = game.register('user-1', 'Hero', 'Knight');
+    game.lastRegistration = 0;
+    game.register('user-2', 'Rival', 'Mage');
+    game.drainMessages();
+    player.level = 25;
+
+    const result = game.challengeOpponent(player);
+
+    assert.equal(result.started, true);
+    assert.equal(result.opponentType, 'player');
+    assert.equal(result.opponentUserId, 'user-2');
+    assert.doesNotMatch(game.messages.join('\n'), /IdleRPG/);
+    assert.match(game.messages[0], /Rival \(<@user-2>\)/);
+  } finally {
+    Math.random = originalRandom;
+    database.close();
+  }
+});
+
 test('leaving and rejoining requires no login command', () => {
   const database = new GameDatabase(':memory:');
   const game = new IdleGame('channel', database, config, events);

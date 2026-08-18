@@ -24,6 +24,7 @@ const defaults = {
   offlineGraceSeconds: 60,
   questEligibilitySeconds: 14400,
   announceLoginMessages: true,
+  enableBotOpponent: true,
 };
 
 function flattenConfigValue(entries, key, value) {
@@ -132,6 +133,9 @@ export function loadConfig() {
   }
   if (typeof config.announceLoginMessages !== 'boolean') {
     throw new Error('announceLoginMessages must be a boolean.');
+  }
+  if (typeof config.enableBotOpponent !== 'boolean') {
+    throw new Error('enableBotOpponent must be a boolean.');
   }
   if (typeof config.defaultLocale !== 'string' || !config.defaultLocale) {
     throw new Error('defaultLocale must be a locale string.');

@@ -24,5 +24,6 @@
   "noScale": false,
   "caseInsensitiveNames": true,
   "offlineGraceSeconds": 60,
-  "announceLoginMessages": true
+  "announceLoginMessages": true,
+  "enableBotOpponent": true
 }
