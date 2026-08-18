@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+node_modules
+original
+test
+db
+config.json
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+npm-debug.log*
+data/*
+!data/config.example.json
+!data/events.example.txt
+!data/events.pt-BR.example.txt

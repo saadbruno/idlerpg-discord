@@ -1,0 +1,26 @@
+{
+  "token": "set DISCORD_TOKEN instead of putting a token here",
+  "channelIds": [
+    "123456789012345678",
+    "234567890123456789"
+  ],
+  "ownerIds": [
+    "345678901234567890"
+  ],
+  "databasePath": "./idlerpg.sqlite",
+  "defaultLocale": "en-US",
+  "eventsPaths": {
+    "en-US": "./events.txt",
+    "pt-BR": "./events.pt-BR.txt"
+  },
+  "rpBase": 600,
+  "rpStep": 1.16,
+  "rpPenStep": 1.14,
+  "selfClock": 3,
+  "limitPenalty": 604800,
+  "mapWidth": 500,
+  "mapHeight": 500,
+  "noScale": false,
+  "caseInsensitiveNames": true,
+  "offlineGraceSeconds": 60
+}

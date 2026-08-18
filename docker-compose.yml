@@ -1,0 +1,15 @@
+services:
+  idlerpg:
+    image: saadbruno/idlerpg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      IDLERPG_DATA_DIR: /data
+      IDLERPG_CONFIG: /data/config.json
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+    volumes:
+      - ./data:/data
+    stop_grace_period: 30s

@@ -1,0 +1,40 @@
+C tentou cobrar o aluguel do Seu Madruga e acabou levando uma porta na cara
+C entrou no barril do Chaves e descobriu que ele não tinha saída de emergência
+C esperou o Chapolin Colorado aparecer, mas ele não contava com a astúcia do trânsito
+C tentou economizar mais do que o Julius e ficou três dias sem almoçar
+C recebeu um olhar decepcionado da Rochelle e perdeu metade da autoestima
+C foi arremessado para fora da mansão junto com o Jazz
+C seguiu o Mestre dos Magos por uma porta que levava diretamente ao episódio seguinte
+C levou uma Genki Dama porque esqueceu de levantar as mãos
+C tentou carregar o Um Anel sem ler os termos de uso
+C discutiu estratégia com o Cebolinha e caiu num plano infalível
+C abriu a geladeira e encontrou apenas feijão num pote de sorvete
+C esqueceu de salvar o jogo antes de enfrentar o chefe final
+G encontrou um sanduíche de presunto perfeitamente conservado no barril do Chaves
+G recebeu do Seu Madruga uma aula avançada sobre como fugir de cobranças
+G pegou emprestada a marreta biônica do Chapolin Colorado
+G encontrou uma promoção que até o Julius considerou econômica
+G venceu uma discussão com a Rochelle e sobreviveu para contar a história
+G aprendeu a dança do Carlton e ganhou velocidade inexplicável
+G encontrou o Mestre dos Magos e exigiu instruções por escrito
+G juntou as sete esferas e pediu uma conexão de internet estável
+G tirou a espada da pedra usando apenas jeitinho brasileiro
+G encontrou um plano realmente infalível escrito pelo Cebolinha
+G descobriu um pote de sorvete que realmente continha sorvete
+G recebeu um PIX inesperado com a descrição "recompensa da missão"
+Q1 recuperar todos os aluguéis atrasados do Seu Madruga antes que ele pule outra janela
+Q1 devolver a marreta biônica ao Chapolin antes que alguém tente consertar a televisão com ela
+Q1 provar ao Julius que a missão inteira custará menos de dois reais e cinquenta centavos
+Q1 ensinar ao Carlton uma coreografia que funcione durante batalhas medievais
+Q1 descobrir por que ninguém nunca sai definitivamente da Caverna do Dragão
+Q1 reunir as sete esferas para pedir ao Shenlong um feriado prolongado
+Q1 levar o Um Anel até Mordor usando apenas transporte público
+Q1 descobrir quem roubou o coelhinho Sansão antes que a Mônica encontre os suspeitos
+Q2 72 318 326 271 cobrar o aluguel na vila e depois escapar da Dona Florinda
+Q2 155 155 401 476 visitar a casa dos Kyle e entregar ao Julius um cupom de desconto lendário
+Q2 35 40 170 100 atravessar Bel-Air dançando como Carlton e devolver Jazz à porta da mansão
+Q2 225 415 280 460 explorar o Castelo Rá-Tim-Bum e impedir outro plano do Doutor Abobrinha
+Q2 290 65 325 270 encontrar a saída da Caverna do Dragão e obrigar o Mestre dos Magos a falar claramente
+Q2 480 415 325 270 seguir as pistas do Scooby-Doo e desmascarar o dono do parque abandonado
+Q2 50 350 160 380 treinar com o Mestre Kame e entregar leite sem usar teletransporte
+Q2 400 475 480 380 entrar na Matrix e cancelar uma reunião que poderia ter sido um e-mail
