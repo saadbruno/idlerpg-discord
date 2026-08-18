@@ -22,7 +22,44 @@ const defaults = {
   noScale: false,
   caseInsensitiveNames: true,
   offlineGraceSeconds: 60,
+  questEligibilitySeconds: 14400,
+  announceLoginMessages: true,
 };
+
+function flattenConfigValue(entries, key, value) {
+  if (key.split('.').at(-1).toLowerCase() === 'token') return;
+  if (value instanceof Set) value = [...value];
+  if (Array.isArray(value)) {
+    if (!value.length) entries.push([key, '[]']);
+    else value.forEach((item, index) => flattenConfigValue(entries, `${key}[${index}]`, item));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    const children = Object.entries(value);
+    if (!children.length) entries.push([key, '{}']);
+    else children.forEach(([childKey, childValue]) => {
+      flattenConfigValue(entries, `${key}.${childKey}`, childValue);
+    });
+    return;
+  }
+  entries.push([key, value === undefined ? 'undefined' : String(value)]);
+}
+
+export function formatConfigSummary(config) {
+  const entries = [];
+  for (const [key, value] of Object.entries(config)) flattenConfigValue(entries, key, value);
+  const settingWidth = Math.max('Setting'.length, ...entries.map(([key]) => key.length));
+  const valueWidth = Math.max('Loaded value'.length, ...entries.map(([, value]) => value.length));
+  const border = `+${'-'.repeat(settingWidth + 2)}+${'-'.repeat(valueWidth + 2)}+`;
+  const row = (setting, value) => `| ${setting.padEnd(settingWidth)} | ${value.padEnd(valueWidth)} |`;
+  return [
+    border,
+    row('Setting', 'Loaded value'),
+    border,
+    ...entries.map(([key, value]) => row(key, value)),
+    border,
+  ].join('\n');
+}
 
 export function bundledEventsPath(locale) {
   const filename = locale === 'pt-BR' ? 'events.pt-BR.example.txt' : 'events.example.txt';
@@ -89,6 +126,12 @@ export function loadConfig() {
   }
   if (!Number.isInteger(config.offlineGraceSeconds) || config.offlineGraceSeconds < 0) {
     throw new Error('offlineGraceSeconds must be a non-negative integer.');
+  }
+  if (!Number.isInteger(config.questEligibilitySeconds) || config.questEligibilitySeconds < 0) {
+    throw new Error('questEligibilitySeconds must be a non-negative integer.');
+  }
+  if (typeof config.announceLoginMessages !== 'boolean') {
+    throw new Error('announceLoginMessages must be a boolean.');
   }
   if (typeof config.defaultLocale !== 'string' || !config.defaultLocale) {
     throw new Error('defaultLocale must be a locale string.');

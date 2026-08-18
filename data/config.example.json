@@ -16,11 +16,13 @@
   "rpBase": 600,
   "rpStep": 1.16,
   "rpPenStep": 1.14,
+  "questEligibilitySeconds": 28800,
   "selfClock": 3,
   "limitPenalty": 604800,
   "mapWidth": 500,
   "mapHeight": 500,
   "noScale": false,
   "caseInsensitiveNames": true,
-  "offlineGraceSeconds": 60
+  "offlineGraceSeconds": 60,
+  "announceLoginMessages": true
 }

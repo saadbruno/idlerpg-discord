@@ -2,7 +2,7 @@ import {
   ApplicationFlagsBitField, Client, Events, GatewayIntentBits, REST, Routes,
 } from 'discord.js';
 import { commandData, handleCommand } from './commands.js';
-import { bundledEventsPath, loadConfig } from './config.js';
+import { bundledEventsPath, formatConfigSummary, loadConfig } from './config.js';
 import { GameDatabase } from './database.js';
 import { IdleGame, loadEvents } from './game.js';
 import { I18n } from './i18n.js';
@@ -20,7 +20,7 @@ const eventPacks = new Map(i18n.locales.map((locale) => {
 }));
 const games = new Map(config.channelIds.map((channelId) => [
   channelId,
-  new IdleGame(channelId, database, config, eventPacks.get(config.defaultLocale), { i18n }),
+  new IdleGame(channelId, database, config, eventPacks.get(config.defaultLocale), { i18n, logger }),
 ]));
 const channels = new Map();
 const guildLocales = new Map();
@@ -50,6 +50,7 @@ function setGuildLocale(guildId, requestedLocale) {
 
 const commandRuntime = { games, i18n, localeForGuild, setGuildLocale };
 
+logger.info(`Configuration loaded (Discord token omitted).\n${formatConfigSummary(config)}`);
 logger.info('Configuration and game state loaded.', {
   configuredChannels: config.channelIds.length,
   databasePath: config.databasePath,

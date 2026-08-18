@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { GameDatabase } from '../src/database.js';
 import { IdleGame } from '../src/game.js';
 import { buildHelpEmbed, buildStatusEmbed, commandData } from '../src/commands.js';
-import { ensureEventsFile } from '../src/config.js';
+import { ensureEventsFile, formatConfigSummary } from '../src/config.js';
 import { PresenceTracker } from '../src/presence.js';
 import { I18n } from '../src/i18n.js';
 import { now } from '../src/utils.js';
@@ -23,6 +23,7 @@ const config = {
   mapHeight: 500,
   noScale: false,
   caseInsensitiveNames: true,
+  questEligibilitySeconds: 14400,
 };
 
 const events = {
@@ -30,6 +31,26 @@ const events = {
   godsends: ['stubbed godsend'],
   quests: [{ type: 1, text: 'test the realm' }],
 };
+
+test('startup configuration summary lists settings without exposing the token', () => {
+  const summary = formatConfigSummary({
+    token: 'super-secret-token',
+    channelIds: ['channel-1', 'channel-2'],
+    ownerIds: new Set(['owner-1']),
+    eventsPaths: { 'en-US': '/data/events.txt' },
+    rpBase: 600,
+    noScale: false,
+  });
+
+  assert.match(summary, /^\+-+\+-+\+$/m);
+  assert.match(summary, /channelIds\[0\].*channel-1/);
+  assert.match(summary, /channelIds\[1\].*channel-2/);
+  assert.match(summary, /ownerIds\[0\].*owner-1/);
+  assert.match(summary, /eventsPaths\.en-US.*\/data\/events\.txt/);
+  assert.match(summary, /rpBase.*600/);
+  assert.match(summary, /noScale.*false/);
+  assert.doesNotMatch(summary, /super-secret-token/);
+});
 
 test('the same Discord user has completely separate characters per channel', () => {
   const database = new GameDatabase(':memory:');
@@ -68,8 +89,11 @@ test('level timer uses the original exponential curve', () => {
   const originalRandom = Math.random;
   Math.random = () => 0.5;
   const database = new GameDatabase(':memory:');
+  const logs = [];
   try {
-    const game = new IdleGame('channel', database, config, events);
+    const game = new IdleGame('channel', database, config, events, {
+      logger: { info: (message, details) => logs.push({ message, details }) },
+    });
     const player = game.register('user-1', 'Hero', 'Knight');
     player.next_level = 1;
     const timestamp = now();
@@ -81,6 +105,48 @@ test('level timer uses the original exponential curve', () => {
     assert.equal(player.next_level, Math.floor(600 * (1.16 ** 1)));
     assert.equal(player.idled, 2);
     assert.ok(game.messages.some((message) => message.includes('Hero, the Knight (<@user-1>), has attained level 1!')));
+    assert.deepEqual(logs, [{
+      message: 'Player leveled up; battle check completed.',
+      details: {
+        channelId: 'channel',
+        userId: 'user-1',
+        character: 'Hero',
+        level: 1,
+        battleStarted: false,
+        battleSkippedReason: 'random-chance',
+        battleChance: '1-in-4',
+        battleChanceRoll: 3,
+        battleChanceRequiredRoll: 1,
+        opponentType: undefined,
+        opponentUserId: undefined,
+        opponentCharacter: undefined,
+        battleWon: undefined,
+      },
+    }]);
+  } finally {
+    Math.random = originalRandom;
+    database.close();
+  }
+});
+
+test('level-up events only mention the leveling player in the initial announcement', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0.75;
+  const database = new GameDatabase(':memory:');
+  try {
+    const game = new IdleGame('channel', database, config, events);
+    const player = game.register('user-1', 'Hero', 'Knight');
+    game.lastRegistration = 0;
+    game.register('user-2', 'Rival', 'Mage');
+    game.drainMessages();
+    player.level = 24;
+
+    game.levelUp(player);
+
+    assert.match(game.messages[0], /Hero, the Knight \(<@user-1>\), has attained level 25/);
+    assert.doesNotMatch(game.messages.slice(1).join('\n'), /<@user-1>/);
+    assert.match(game.messages.slice(1).join('\n'), /Rival \(<@user-2>\)/);
+    assert.equal(game.messages.join('\n').match(/<@user-1>/g)?.length, 1);
   } finally {
     Math.random = originalRandom;
     database.close();
@@ -101,6 +167,68 @@ test('leaving and rejoining requires no login command', () => {
   assert.deepEqual(game.messages, [
     'Hero, the level 0 Knight (<@user-1>), is now online. Next level in 0 days, 00:10:20.',
   ]);
+  database.close();
+});
+
+test('login announcements can be disabled without preventing reactivation', () => {
+  const database = new GameDatabase(':memory:');
+  const game = new IdleGame('channel', database, {
+    ...config,
+    announceLoginMessages: false,
+  }, events);
+  const player = game.register('user-1', 'Hero', 'Knight');
+
+  game.setActive('user-1', false, 'quit');
+  game.drainMessages();
+  game.setActive('user-1', true);
+
+  assert.equal(player.active, 1);
+  assert.equal(game.messages.length, 0);
+  assert.equal(database.getPlayer('channel', 'user-1').active, 1);
+  database.close();
+});
+
+test('online presence changes do not deactivate an already-active character', () => {
+  const database = new GameDatabase(':memory:');
+  const game = new IdleGame('channel', database, config, events);
+  const player = game.register('user-1', 'Hero', 'Knight');
+  game.drainMessages();
+  const tracker = new PresenceTracker({
+    games: new Map([['channel', game]]),
+    channels: new Map([['channel', { guild: { id: 'guild' } }]]),
+    enabled: true,
+    graceSeconds: 60,
+  });
+
+  tracker.update('guild', 'user-1', 'online');
+  tracker.update('guild', 'user-1', 'idle');
+  tracker.update('guild', 'user-1', 'dnd');
+
+  assert.equal(player.active, 1);
+  assert.equal(player.pen_quit, 0);
+  assert.equal(player.next_level, config.rpBase);
+  assert.deepEqual(game.messages, []);
+  tracker.clear();
+  database.close();
+});
+
+test('quest eligibility uses the configured continuous-online duration', () => {
+  const database = new GameDatabase(':memory:');
+  const game = new IdleGame('channel', database, config, events);
+  const timestamp = now();
+
+  for (let index = 1; index <= 4; index += 1) {
+    game.lastRegistration = 0;
+    const player = game.register(`user-${index}`, `Hero${index}`, 'Knight');
+    player.level = 40;
+    player.last_login = timestamp - 18000;
+  }
+  game.drainMessages();
+
+  game.startQuest(timestamp);
+
+  assert.equal(JSON.parse(game.channel.questers).length, 4);
+  assert.match(game.messages[0], /have been chosen by the gods/);
   database.close();
 });
 

@@ -31,13 +31,18 @@ export function loadEvents(filename) {
 }
 
 export class IdleGame {
-  constructor(channelId, database, config, events, { i18n = defaultI18n, locale = config.defaultLocale } = {}) {
+  constructor(channelId, database, config, events, {
+    i18n = defaultI18n,
+    locale = config.defaultLocale,
+    logger = { info() {} },
+  } = {}) {
     this.channelId = channelId;
     this.database = database;
     this.config = config;
     this.events = events;
     this.i18n = i18n;
     this.locale = this.i18n.resolve(locale);
+    this.logger = logger;
     this.channel = database.ensureChannel(channelId);
     this.players = new Map(database.getPlayers(channelId).map((player) => [player.user_id, player]));
     this.messages = [];
@@ -71,8 +76,8 @@ export class IdleGame {
     return this.config.ownerIds.has(String(userId)) || Boolean(this.playerForUser(userId)?.is_admin);
   }
 
-  playerLabel(player) {
-    return `${player.name} (<@${player.user_id}>)`;
+  playerLabel(player, mention = true) {
+    return mention ? `${player.name} (<@${player.user_id}>)` : player.name;
   }
 
   playerLabels(players) {
@@ -242,14 +247,16 @@ export class IdleGame {
       player.active = 1;
       player.last_login = now();
       this.database.savePlayer(player);
-      this.announce(this.t('game.online', {
-        name: player.name,
-        level: player.level,
-        className: player.class,
-        mention: `<@${player.user_id}>`,
-        time: this.duration(player.next_level),
-      }));
-    } else if (player.active) {
+      if (this.config.announceLoginMessages !== false) {
+        this.announce(this.t('game.online', {
+          name: player.name,
+          level: player.level,
+          className: player.class,
+          mention: `<@${player.user_id}>`,
+          time: this.duration(player.next_level),
+        }));
+      }
+    } else if (!active && player.active) {
       this.penalize(player, penaltyType ?? 'quit');
     }
   }
@@ -368,8 +375,23 @@ export class IdleGame {
       name: player.name, className: player.class, mention: `<@${player.user_id}>`,
       level: player.level, time: this.duration(player.next_level),
     }));
-    this.findItem(player);
-    this.challengeOpponent(player);
+    this.findItem(player, { mentionPlayer: false });
+    const battle = this.challengeOpponent(player, { mentionPlayer: false });
+    this.logger.info('Player leveled up; battle check completed.', {
+      channelId: this.channelId,
+      userId: player.user_id,
+      character: player.name,
+      level: player.level,
+      battleStarted: battle.started,
+      battleSkippedReason: battle.reason,
+      battleChance: battle.chance,
+      battleChanceRoll: battle.chanceRoll,
+      battleChanceRequiredRoll: battle.chanceRequiredRoll,
+      opponentType: battle.opponentType,
+      opponentUserId: battle.opponentUserId,
+      opponentCharacter: battle.opponentCharacter,
+      battleWon: battle.won,
+    });
   }
 
   handOfGod() {
@@ -391,20 +413,40 @@ export class IdleGame {
     this.announce(this.t('game.nextLevel', { player: label, time: this.duration(player.next_level) }));
   }
 
-  challengeOpponent(player) {
-    if (player.level < 25 && rand(4) >= 1) return;
+  challengeOpponent(player, { mentionPlayer = true } = {}) {
+    const chance = player.level < 25 ? '1-in-4' : 'guaranteed';
+    const chanceRoll = player.level < 25 ? randInt(4) + 1 : undefined;
+    const chanceRequiredRoll = player.level < 25 ? 1 : undefined;
+    if (chanceRoll !== undefined && chanceRoll !== chanceRequiredRoll) {
+      return {
+        started: false,
+        reason: 'random-chance',
+        chance,
+        chanceRoll,
+        chanceRequiredRoll,
+      };
+    }
     const opponents = this.activePlayers.filter((candidate) => candidate.user_id !== player.user_id);
-    if (!opponents.length) return;
+    if (!opponents.length) {
+      return {
+        started: false,
+        reason: 'no-active-opponents',
+        chance,
+        chanceRoll,
+        chanceRequiredRoll,
+      };
+    }
     let opponent = sample(opponents);
     if (rand(opponents.length + 1) < 1) opponent = BOT_OPPONENT;
     const mySum = this.itemSum(player, true);
     const opponentSum = this.itemSum(opponent, true);
     const myRoll = randInt(mySum);
     const opponentRoll = randInt(opponentSum);
-    const playerLabel = this.playerLabel(player);
+    const playerLabel = this.playerLabel(player, mentionPlayer);
     const opponentLabel = opponent === BOT_OPPONENT ? BOT_OPPONENT : this.playerLabel(opponent);
 
-    if (myRoll >= opponentRoll) {
+    const won = myRoll >= opponentRoll;
+    if (won) {
       let percent = opponent === BOT_OPPONENT ? 20 : Math.floor(opponent.level / 4);
       if (percent < 7) percent = 7;
       let gain = Math.floor((percent / 100) * player.next_level);
@@ -423,7 +465,7 @@ export class IdleGame {
         opponent.next_level += gain;
         this.announce(this.t('game.nextLevel', { player: opponentLabel, time: this.duration(opponent.next_level) }));
       } else if (rand(25) < 1 && opponent !== BOT_OPPONENT && player.level > 19) {
-        this.swapBattleItem(player, opponent);
+        this.swapBattleItem(player, opponent, { mentionWinner: mentionPlayer });
       }
     } else {
       let percent = opponent === BOT_OPPONENT ? 10 : Math.floor(opponent.level / 7);
@@ -436,14 +478,24 @@ export class IdleGame {
       player.next_level += gain;
       this.announce(this.t('game.nextLevel', { player: playerLabel, time: this.duration(player.next_level) }));
     }
+    return {
+      started: true,
+      chance,
+      chanceRoll,
+      chanceRequiredRoll,
+      opponentType: opponent === BOT_OPPONENT ? 'bot' : 'player',
+      opponentUserId: opponent === BOT_OPPONENT ? undefined : opponent.user_id,
+      opponentCharacter: opponent === BOT_OPPONENT ? BOT_OPPONENT : opponent.name,
+      won,
+    };
   }
 
-  swapBattleItem(winner, loser, collision = false) {
+  swapBattleItem(winner, loser, { mentionWinner = true, mentionLoser = true } = {}) {
     const item = sample(ITEMS);
     if (numericItemLevel(loser.items[item]) <= numericItemLevel(winner.items[item])) return;
     this.announce(this.t('game.battle.swap', {
-      loser: this.playerLabel(loser), loserLevel: numericItemLevel(loser.items[item]),
-      item: this.itemName(item), winner: this.playerLabel(winner),
+      loser: this.playerLabel(loser, mentionLoser), loserLevel: numericItemLevel(loser.items[item]),
+      item: this.itemName(item), winner: this.playerLabel(winner, mentionWinner),
       winnerLevel: numericItemLevel(winner.items[item]), loserName: loser.name,
     }));
     [winner.items[item], loser.items[item]] = [loser.items[item], winner.items[item]];
@@ -492,7 +544,7 @@ export class IdleGame {
         opponent.next_level += gain;
         this.announce(this.t('game.nextLevel', { player: opponentLabel, time: this.duration(opponent.next_level) }));
       } else if (rand(25) < 1 && player.level > 19) {
-        this.swapBattleItem(player, opponent, true);
+        this.swapBattleItem(player, opponent);
       }
     } else {
       let percent = Math.floor(opponent.level / 7);
@@ -507,7 +559,8 @@ export class IdleGame {
     }
   }
 
-  findItem(player) {
+  findItem(player, { mentionPlayer = true } = {}) {
+    const playerLabel = this.playerLabel(player, mentionPlayer);
     const item = sample(ITEMS);
     let foundLevel = 1;
     for (let level = 1; level <= Math.floor(player.level * 1.5); level += 1) {
@@ -531,7 +584,7 @@ export class IdleGame {
         const level = artifact.base + randInt(artifact.range);
         if (level >= foundLevel && level > numericItemLevel(player.items[artifact.item])) {
           this.announce(this.t('game.artifactFound', {
-            player: this.playerLabel(player), level,
+            player: playerLabel, level,
             artifact: this.t(`artifact.${artifact.key}.name`),
             description: this.t(`artifact.${artifact.key}.description`),
           }));
@@ -545,12 +598,12 @@ export class IdleGame {
     const current = numericItemLevel(player.items[item]);
     if (foundLevel > current) {
       this.announce(this.t('game.itemFound.better', {
-        player: this.playerLabel(player), foundLevel, item: this.itemName(item), currentLevel: current,
+        player: playerLabel, foundLevel, item: this.itemName(item), currentLevel: current,
       }));
       player.items[item] = String(foundLevel);
     } else {
       this.announce(this.t('game.itemFound.worse', {
-        player: this.playerLabel(player), foundLevel, item: this.itemName(item), currentLevel: current,
+        player: playerLabel, foundLevel, item: this.itemName(item), currentLevel: current,
       }));
     }
   }
@@ -726,7 +779,9 @@ export class IdleGame {
   }
 
   startQuest(timestamp = now()) {
-    const eligible = this.activePlayers.filter((player) => player.level > 39 && timestamp - player.last_login > 36000);
+    const eligible = this.activePlayers.filter((player) => (
+      player.level > 39 && timestamp - player.last_login > this.config.questEligibilitySeconds
+    ));
     if (eligible.length < 4) return;
     const questers = shuffle(eligible).slice(0, 4);
     const quest = sample(this.events.quests);
